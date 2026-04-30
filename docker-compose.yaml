@@ -1,7 +1,7 @@
 services:
   db:
-    container-name: postgres-db
-    image: postgres
+    container_name: postgres-db
+    image: postgres:latest
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -12,5 +12,35 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - StockPortfolioAnalysis
-      
+      - private-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d postgres" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
+  etl:
+    container_name: etl-process
+    image: infra/Dockerfile.etl
+    networks:
+      -private-network
+
+networks:
+  private-network:
+    driver: bridge
+volumes:
+  db:
+  pgdata:
