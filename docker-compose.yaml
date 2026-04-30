@@ -1,46 +1,76 @@
 services:
   db:
     container_name: postgres-db
-    image: postgres:latest
+    image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
+      PGUSER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PGDATA: /data/postgres
       POSTGRES_DB: stocks
     volumes:
-      - db:/data/postgres
+      - db_data:/var/lib/postgresql/data
+      - ./infra/database/create_database.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     networks:
       - private-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -d postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 30s
       timeout: 10s
       retries: 5
-  
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4
     container_name: pgadmin
     restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "True"
+    volumes:
+      - ./infra/pgadmin/servers.json:/pgadmin4/servers.json
+    networks:
+      - private-network
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   etl:
-    container_name: etl-process
-    image: infra/Dockerfile.etl
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.etl
+    container_name: dagster-etl
+    environment:
+      - DAGSTER_HOME=/opt/dagster/dagster_home
+    env_file: .env
+    ports:
+
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./app:/opt/dagster/app/app
     networks:
-      -private-network
+      - private-network
+    depends_on:
+      db:
+        condition: service_healthy
 
 networks:
   private-network:
     driver: bridge
 volumes:
-  db:
-  pgdata:
+  db_data:
