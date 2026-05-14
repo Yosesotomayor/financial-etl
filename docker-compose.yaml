@@ -69,6 +69,36 @@ services:
       db:
         condition: service_healthy
 
+  markowitz:
+    build:
+      context: ./markowitz
+    container_name: markowitz-optimization
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      etl:
+        condition: service_started
+    networks:
+      - private-network
+
+  dashboard:
+    build:
+      context: ./dashboard
+    container_name: streamlit-dashboard
+    env_file: .env
+    ports:
+      - "127.0.0.1:8501:8501"
+    depends_on:
+      db:
+        condition: service_healthy
+      markowitz:
+        condition: service_started
+    networks:
+      - private-network
+
 networks:
   private-network:
     driver: bridge

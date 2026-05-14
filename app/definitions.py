@@ -14,9 +14,9 @@ defs = Definitions(
         "db": PostgresResource(
             user=os.getenv("POSTGRES_USER"),
             password=os.getenv("POSTGRES_PASSWORD"),
-            host=os.getenv("POSTGRES_HOST", "db"),
+            host="db",
             port=int(os.getenv("POSTGRES_PORT", 5432)),
-            database=os.getenv("POSTGRES_DB"),
+            database="postgres",
         )
     },
 )
