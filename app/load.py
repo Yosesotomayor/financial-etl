@@ -15,17 +15,24 @@ def persisted_market_data(
     
     with db.get_connection() as conn:
         context.log.info(f"Insertando {len(clean_prices)} registros en raw.daily_prices")
-        
-        # guardar en db (conn compatible?)
-        clean_prices.to_sql(
-            name="daily_prices",
-            schema="raw",
-            con=conn,
-            if_exists="append", # append para agregar datos diarios, replace para remplazar
-            index=True,          # True para que se guarde la columna de fechas (el indice)
-            index_label="date"   # Nombre a la columna de fechas
-        )
-        
-        context.log.info("Carga en raw.daily_prices completada exitosamente.")
-        
+
+        try:
+            from sqlalchemy import text
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS raw"))
+            conn.commit()
+            
+            # guardar en db (conn compatible?)
+            clean_prices.to_sql(
+                name="daily_prices",
+                schema="raw",
+                con=conn,
+                if_exists="replace", # Usamos replace para asegurar que el esquema coincida con el DF
+                index=True,          # True para que se guarde la columna de fechas (el indice)
+                index_label="date"   # Nombre a la columna de fechas
+            )
+            context.log.info("Carga en raw.daily_prices completada exitosamente.")
+        except Exception as e:
+            context.log.error(f"Error al insertar en DB: {str(e)}")
+            raise e
+
     return True
